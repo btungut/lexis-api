@@ -37,9 +37,20 @@ helm registry login ghcr.io
 
 Key values in [helm/values.yaml](helm/values.yaml):
 
+**Shared Values** (centralized configuration):
+
+- `shared.App_Port` - Application port (default: `4001`)
+- `shared.App_MaxCharProcess` - Max characters to process (default: `2000`)
+
+**Deployment**:
+
 - `deployment.image.repository` / `deployment.image.tag` - Container image
-- `deployment.env.PORT` - Application port (e.g., `4001`)
-- `deployment.env.MAX_CHAR_PROCESS` - Max text length (default: `2000`)
+- `deployment.replicaCount` - Number of pod replicas
+- `deployment.env.PORT` - References `{{ .Values.shared.App_Port }}`
+- `deployment.env.MAX_CHAR_PROCESS` - References `{{ .Values.shared.App_MaxCharProcess }}`
+
+**Service & Ingress**:
+
 - `service.type` / `service.port` - Service configuration
 - `ingress.enabled` / `ingress.rule.*` - Ingress settings
 
@@ -48,16 +59,16 @@ Custom values example:
 ```yaml
 # values.local.yaml
 shared:
-  App_Port: 4001  # Centralized port configuration
+  App_Port: 4001           # Centralized port configuration
+  App_MaxCharProcess: 3000 # Centralized max char process
 
 deployment:
   replicaCount: 2
   image:
     tag: latest
-  env:
-    PORT: "{{ .Values.shared.App_Port }}"  # References shared.App_Port
-    MAX_CHAR_PROCESS: "2000"
 ```
+
+The `deployment.env.PORT` and `deployment.env.MAX_CHAR_PROCESS` automatically reference the shared values via Helm templating.
 
 Apply:
 
