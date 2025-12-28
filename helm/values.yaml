@@ -21,6 +21,15 @@ deployment:
     PORT: "{{ .Values.shared.App_Port }}"
     MAX_CHAR_PROCESS: "{{ .Values.shared.App_MaxCharProcess }}"
 
+  ### API needs at least these resources to run properly
+  resources:
+    limits:
+      cpu: 500m
+      memory: 1024Mi
+    requests:
+      cpu: 500m
+      memory: 1024Mi
+
 
 service:
   enabled: true
