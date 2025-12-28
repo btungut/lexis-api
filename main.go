@@ -17,7 +17,7 @@ import (
 
 // --- Configuration Constants ---
 const (
-	DefaultPort           = ":3000"
+	DefaultPort           = "3000"
 	DefaultMaxCharProcess = 1000
 )
 
@@ -37,6 +37,9 @@ func main() {
 	appPort := os.Getenv("PORT")
 	if appPort == "" {
 		appPort = DefaultPort
+	}
+	if !strings.HasPrefix(appPort, ":") {
+		appPort = ":" + appPort
 	}
 
 	maxCharProcess := DefaultMaxCharProcess
