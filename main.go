@@ -28,6 +28,7 @@ type LanguageDetectionRequest struct {
 }
 
 type LanguageDetectionResponse struct {
+	ISOCode    string  `json:"iso_code"`
 	Language   string  `json:"language"`
 	Confidence float64 `json:"confidence"`
 }
@@ -119,6 +120,7 @@ func NewApp(detector lingua.LanguageDetector, maxCharProcess int) *fiber.App {
 		if err := c.BodyParser(req); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Invalid JSON format",
+				"code":  "INVALID_JSON",
 			})
 		}
 
@@ -126,6 +128,7 @@ func NewApp(detector lingua.LanguageDetector, maxCharProcess int) *fiber.App {
 		if len(req.Text) == 0 {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Description cannot be empty",
+				"code":  "EMPTY_TEXT",
 			})
 		}
 
@@ -141,17 +144,25 @@ func NewApp(detector lingua.LanguageDetector, maxCharProcess int) *fiber.App {
 		// Perform Detection
 		language, exists := detector.DetectLanguageOf(textToProcess)
 
-		isoCode := "unknown"
-		confidence := 0.0
+		rsp_isoCode := "unknown"
+		rsp_language := "unknown"
+		rsp_confidence := 0.0
 
 		if exists {
-			isoCode = language.IsoCode639_1().String()
-			confidence = detector.ComputeLanguageConfidence(textToProcess, language)
+			rsp_isoCode = language.IsoCode639_1().String()
+			rsp_language = language.String()
+			rsp_confidence = detector.ComputeLanguageConfidence(textToProcess, language)
+		} else {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Could not detect language with sufficient confidence",
+				"code":  "DETECTION_FAILED",
+			})
 		}
 
 		return c.JSON(LanguageDetectionResponse{
-			Language:   strings.ToLower(isoCode),
-			Confidence: confidence,
+			ISOCode:    strings.ToLower(rsp_isoCode),
+			Language:   strings.ToLower(rsp_language),
+			Confidence: rsp_confidence,
 		})
 	})
 

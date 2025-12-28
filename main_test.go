@@ -21,7 +21,6 @@ func TestHealthEndpoint(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/health", nil)
 	resp, err := app.Test(req)
-
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
@@ -34,7 +33,12 @@ func TestHealthEndpoint(t *testing.T) {
 
 func TestDetectEndpoint(t *testing.T) {
 	// Setup detector with specific languages for testing
-	languages := []lingua.Language{lingua.English, lingua.Spanish, lingua.Turkish, lingua.Arabic}
+	languages := []lingua.Language{
+		lingua.English, lingua.Turkish, lingua.German, lingua.French,
+		lingua.Spanish, lingua.Italian, lingua.Portuguese, lingua.Russian,
+		lingua.Arabic, lingua.Chinese, lingua.Japanese, lingua.Korean,
+		lingua.Dutch, lingua.Azerbaijani, lingua.Persian,
+	}
 	detector := lingua.NewLanguageDetectorBuilder().
 		FromLanguages(languages...).
 		WithPreloadedLanguageModels().
@@ -43,59 +47,72 @@ func TestDetectEndpoint(t *testing.T) {
 	app := NewApp(detector, 100) // Low max char process for testing truncation
 
 	tests := []struct {
-		name           string
-		payload        interface{} // Use interface to allow passing invalid JSON strings or structs
-		expectedStatus int
-		expectedLang   string
+		name             string
+		payload          interface{} // Use interface to allow passing invalid JSON strings or structs
+		expectedStatus   int
+		expectedISOCode  string
+		expectedLanguage string
+		expectError      bool
 	}{
 		{
-			name:           "Valid English",
-			payload:        LanguageDetectionRequest{Text: "Hello, this is a software engineering test."},
-			expectedStatus: 200,
-			expectedLang:   "en",
+			name:             "Valid English",
+			payload:          LanguageDetectionRequest{Text: "Hello, this is a software engineering test."},
+			expectedStatus:   200,
+			expectedISOCode:  "en",
+			expectedLanguage: "english",
 		},
 		{
-			name:           "Valid Spanish",
-			payload:        LanguageDetectionRequest{Text: "Hola, esto es una prueba de ingeniería de software."},
-			expectedStatus: 200,
-			expectedLang:   "es",
+			name:             "Valid Spanish",
+			payload:          LanguageDetectionRequest{Text: "Hola, esto es una prueba de ingeniería de software."},
+			expectedStatus:   200,
+			expectedISOCode:  "es",
+			expectedLanguage: "spanish",
 		},
 		{
 			name:           "Empty Text",
 			payload:        LanguageDetectionRequest{Text: ""},
 			expectedStatus: 400,
-			expectedLang:   "",
+			expectError:    true,
 		},
 		{
-			name:           "Truncation Logic",
+			name: "Truncation Logic",
 			// Text is longer than 100 chars (limit set in app setup above)
-			payload:        LanguageDetectionRequest{Text: strings.Repeat("This is a very long english sentence that should be truncated but still detected as english successfully.", 5)},
-			expectedStatus: 200,
-			expectedLang:   "en",
+			payload:          LanguageDetectionRequest{Text: strings.Repeat("This is a very long english sentence that should be truncated but still detected as english successfully.", 5)},
+			expectedStatus:   200,
+			expectedISOCode:  "en",
+			expectedLanguage: "english",
 		},
 		{
-			name: "Valid Arabic",
-			payload: LanguageDetectionRequest{Text: "مرحبا، هذا اختبار هندسة البرمجيات."},
-			expectedStatus: 200,
-			expectedLang:   "ar",
+			name:             "Valid Arabic",
+			payload:          LanguageDetectionRequest{Text: "مرحبا، هذا اختبار هندسة البرمجيات."},
+			expectedStatus:   200,
+			expectedISOCode:  "ar",
+			expectedLanguage: "arabic",
+		},
+		{
+			name:             "Valid Turkish",
+			payload:          LanguageDetectionRequest{Text: "Merhaba, bu bir yazılım mühendisliği testidir."},
+			expectedStatus:   200,
+			expectedISOCode:  "tr",
+			expectedLanguage: "turkish",
 		},
 		{
 			name:           "Malformed JSON",
 			payload:        `{"text": "This is a test",`, // Invalid JSON
 			expectedStatus: 400,
-			expectedLang:   "",
+			expectError:    true,
 		},
 		{
 			name:           "Non-string Text Field",
 			payload:        map[string]interface{}{"text": 12345}, // Invalid type
 			expectedStatus: 400,
-			expectedLang:   "",
+			expectError:    true,
 		},
 		{
-			name:           "Unsupported Language",
-			payload:        LanguageDetectionRequest{Text: "これはソフトウェアエンジニアリングのテストです。"}, // Japanese not in detector
-			expectedStatus: 200,
-			expectedLang:   "unknown",
+			name:           "Unsupported Language - Insufficient Confidence",
+			payload:        LanguageDetectionRequest{Text: "यह एक सॉफ्टवेयर इंजीनियरिंग परीक्षण है।"}, // Hindi - not in detector
+			expectedStatus: 400,
+			expectError:    true,
 		},
 	}
 
@@ -127,15 +144,35 @@ func TestDetectEndpoint(t *testing.T) {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, resp.StatusCode)
 			}
 
+			respBody, _ := io.ReadAll(resp.Body)
+
 			if tt.expectedStatus == 200 {
 				var response LanguageDetectionResponse
-				respBody, _ := io.ReadAll(resp.Body)
 				if err := json.Unmarshal(respBody, &response); err != nil {
 					t.Fatalf("Failed to parse response: %v", err)
 				}
 
-				if response.Language != tt.expectedLang {
-					t.Errorf("Expected language %s, got %s", tt.expectedLang, response.Language)
+				if response.ISOCode != tt.expectedISOCode {
+					t.Errorf("Expected ISO code %s, got %s", tt.expectedISOCode, response.ISOCode)
+				}
+
+				if response.Language != tt.expectedLanguage {
+					t.Errorf("Expected language %s, got %s", tt.expectedLanguage, response.Language)
+				}
+
+				if response.Confidence < 0.0 || response.Confidence > 1.0 {
+					t.Errorf("Confidence should be between 0.0 and 1.0, got %f", response.Confidence)
+				}
+			}
+
+			if tt.expectError {
+				var errorResponse map[string]interface{}
+				if err := json.Unmarshal(respBody, &errorResponse); err != nil {
+					t.Fatalf("Failed to parse error response: %v", err)
+				}
+
+				if _, ok := errorResponse["error"]; !ok {
+					t.Errorf("Expected error field in response, got: %v", errorResponse)
 				}
 			}
 		})

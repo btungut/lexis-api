@@ -123,7 +123,7 @@ curl http://localhost:3000/health
 
 ### `POST /detect`
 
-Detects language and returns ISO 639-1 code with confidence score.
+Detects language and returns ISO 639-1 code, language name, and confidence score.
 
 **Request**:
 
@@ -131,10 +131,10 @@ Detects language and returns ISO 639-1 code with confidence score.
 {"text": "Hello, this is a test."}
 ```
 
-**Response**:
+**Response (200)**:
 
 ```json
-{"language": "en", "confidence": 0.97}
+{"iso_code": "en", "language": "english", "confidence": 0.97}
 ```
 
 **Examples**:
@@ -143,29 +143,147 @@ Detects language and returns ISO 639-1 code with confidence score.
 # English
 curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
   -d '{"text":"Hello, this is a test."}'
+# Response: {"iso_code":"en","language":"english","confidence":0.97}
 
 # Turkish
 curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
   -d '{"text":"Merhaba, bu bir testtir."}'
+# Response: {"iso_code":"tr","language":"turkish","confidence":0.98}
 
 # Spanish
 curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
   -d '{"text":"Hola, esto es una prueba."}'
+# Response: {"iso_code":"es","language":"spanish","confidence":0.95}
 ```
 
 **Response Fields**:
 
-- `language` - ISO 639-1 code (`en`, `tr`, `es`, etc.) or `unknown`
+- `iso_code` - ISO 639-1 code (`en`, `tr`, `es`, etc.)
+- `language` - Full language name (`english`, `turkish`, `spanish`, etc.)
 - `confidence` - Float between 0.0 and 1.0
 
-**Error (400)**:
+**Note**: Text exceeding `MAX_CHAR_PROCESS` is automatically truncated (default: 2000 chars).
+
+### Error Responses
+
+All error responses return HTTP 400 Bad Request with a JSON body containing `error` (human-readable message) and `code` (machine-readable identifier) fields.
+
+#### `INVALID_JSON`
+
+Returned when the request body is not valid JSON or cannot be parsed.
 
 ```json
-{"error": "Invalid JSON format"}
-{"error": "Description cannot be empty"}
+{"error": "Invalid JSON format", "code": "INVALID_JSON"}
 ```
 
-**Note**: Text exceeding `MAX_CHAR_PROCESS` is automatically truncated (default: 2000 chars).
+**Common causes**:
+
+- Malformed JSON syntax (missing brackets, quotes, commas)
+- Empty request body
+- Incorrect Content-Type header
+- Binary or non-UTF-8 encoded data
+
+**Example of invalid requests**:
+
+```bash
+# Missing closing brace
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text": "Hello"'
+
+# Missing quotes around value
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{text: Hello}'
+
+# Empty body
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json"
+```
+
+#### `EMPTY_TEXT`
+
+Returned when the `text` field is present but empty or contains only whitespace.
+
+```json
+{"error": "Description cannot be empty", "code": "EMPTY_TEXT"}
+```
+
+**Common causes**:
+
+- Empty string value: `{"text": ""}`
+- Missing text field: `{}`
+- Null value: `{"text": null}`
+
+**Example of invalid requests**:
+
+```bash
+# Empty text field
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text": ""}'
+
+# Missing text field entirely
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+#### `DETECTION_FAILED`
+
+Returned when the language detection algorithm cannot identify the language with sufficient confidence. This typically happens when:
+
+```json
+{"error": "Could not detect language with sufficient confidence", "code": "DETECTION_FAILED"}
+```
+
+**Common causes**:
+
+- Text is in a language not included in the supported languages list
+- Text is too short or ambiguous to determine language
+- Text contains mixed languages
+- Text consists mostly of numbers, symbols, or non-linguistic content
+- Text contains transliterated content (e.g., romanized Japanese)
+
+**Example scenarios**:
+
+```bash
+# Unsupported language (Hindi - not in supported list)
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text": "यह एक परीक्षण है।"}'
+
+# Too short/ambiguous text
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text": "OK"}'
+
+# Non-linguistic content
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text": "12345 !@#$% ..."}'
+```
+
+**Resolution**: Ensure the text is in one of the [Supported Languages](#supported-languages) and contains enough linguistic content for accurate detection. Longer, more natural text produces better results.
+
+### Error Handling Best Practices
+
+When integrating with Lexis API, handle errors by checking the `code` field:
+
+```javascript
+const response = await fetch('/detect', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ text: userInput })
+});
+
+if (!response.ok) {
+  const error = await response.json();
+  switch (error.code) {
+    case 'INVALID_JSON':
+      console.error('Invalid request format');
+      break;
+    case 'EMPTY_TEXT':
+      console.error('Text input is required');
+      break;
+    case 'DETECTION_FAILED':
+      console.error('Could not detect language - try longer text');
+      break;
+  }
+}
+```
 
 ## Supported Languages
 
@@ -216,13 +334,15 @@ Contributions welcome!
 
 This project is released under the **Lexis Non-Commercial Source License (NCSL) v1.0**.
 
-### You are allowed to:
+### You are allowed to
+
 - Pull and run the official Docker image
 - Use the software for personal, educational, or internal evaluation purposes
 - Clone, modify, and build your own Docker images
 - Self-host the software for non-commercial use only
 
-### You are NOT allowed to:
+### You are NOT allowed to
+
 - Use this software in any commercial or revenue-generating product or service
 - Offer the software as part of a paid platform or subscription
 - Provide the software as a hosted or managed service (SaaS)
@@ -231,4 +351,4 @@ This project is released under the **Lexis Non-Commercial Source License (NCSL) 
 
 Commercial use requires a separate commercial license.
 
-📩 For commercial licensing inquiries, contact: **burak.tungut@tungops.com.tr**
+For commercial licensing inquiries, contact: **[burak.tungut@tungops.com.tr](mailto:burak.tungut@tungops.com.tr)**
