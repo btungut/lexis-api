@@ -13,7 +13,13 @@ jobs:
     steps:
       # clear if version v0.0.0 to 0.0.0
       - name: Clear version prefix
-        run: echo "VERSION=${{ github.event.inputs.version#v }}" >> $GITHUB_ENV
+        id: prepare_task
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -33,5 +39,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/btungut/lexis-api:${{ env.VERSION }}
+          tags: ghcr.io/btungut/lexis-api:${{ steps.prepare_task.outputs.version }}
           file: ./Dockerfile
