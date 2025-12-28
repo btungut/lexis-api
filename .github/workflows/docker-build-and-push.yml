@@ -1,11 +1,19 @@
 name: Build and Publish Docker
 
 on:
+  push:
+    branches:
+      - disabled-for-push-no-one-can-enable
   workflow_dispatch:
     inputs:
       version:
         description: 'Version to publish (must be semver)'
         required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-and-push:
@@ -16,7 +24,14 @@ jobs:
         id: prepare_task
         run: |
           VERSION="${{ github.event.inputs.version }}"
+
+          if [ -z "$VERSION" ]; then
+            error "Version is required"
+            exit 1
+          fi
+
           VERSION="${VERSION#v}"
+          echo "Prepared version: $VERSION"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION"
