@@ -1,6 +1,5 @@
 name: Build and Publish Docker
 
-# run only inputs, get version like 0.0.0 (must validate to semver)
 on:
   workflow_dispatch:
     inputs:
