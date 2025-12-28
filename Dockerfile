@@ -27,6 +27,13 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage - minimal runtime image
 FROM alpine:3.19
 
+# Metadata labels
+LABEL maintainer="Burak Tungut"
+LABEL license="Lexis Non-Commercial Source License (NCSL) v1.0"
+LABEL copyright="Copyright (c) 2025 Burak Tungut"
+LABEL commercial-use="prohibited"
+LABEL contact="burak.tungut@tungops.com.tr"
+
 # Install CA certificates for HTTPS requests (if needed)
 RUN apk --no-cache add ca-certificates tzdata
 

@@ -214,4 +214,21 @@ Contributions welcome!
 
 ## License
 
-Open source - check repository for details.
+This project is released under the **Lexis Non-Commercial Source License (NCSL) v1.0**.
+
+### You are allowed to:
+- Pull and run the official Docker image
+- Use the software for personal, educational, or internal evaluation purposes
+- Clone, modify, and build your own Docker images
+- Self-host the software for non-commercial use only
+
+### You are NOT allowed to:
+- Use this software in any commercial or revenue-generating product or service
+- Offer the software as part of a paid platform or subscription
+- Provide the software as a hosted or managed service (SaaS)
+- Monetize the software directly or indirectly
+- Sell access to the software or its functionality
+
+Commercial use requires a separate commercial license.
+
+📩 For commercial licensing inquiries, contact: **burak.tungut@tungops.com.tr**
