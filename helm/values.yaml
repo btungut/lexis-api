@@ -3,6 +3,7 @@ fullnameOverride: ""
 
 shared:
   App_Port: 4001
+  App_MaxCharProcess: 2000
 
 deployment:
   replicaCount: 1
@@ -18,7 +19,7 @@ deployment:
 
   env:
     PORT: "{{ .Values.shared.App_Port }}"
-    MAX_CHAR_PROCESS: "2000"
+    MAX_CHAR_PROCESS: "{{ .Values.shared.App_MaxCharProcess }}"
 
 
 service:
