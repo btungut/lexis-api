@@ -1,19 +1,24 @@
 # Lexis API
 
-Lexis is a tiny HTTP “nanoservice” that detects the language of a given text. It’s built with Go + Fiber and uses `lingua-go` language models.
+Lightweight HTTP microservice for language detection. Built with Go, Fiber, and `lingua-go`.
 
-## Deploy directly into your kubernetes cluster with the helm chart we provide
+**Features**: Detects 15+ languages • Kubernetes-ready • Docker image available • Health monitoring • CORS enabled
 
-### Prerequisites
+## Quick Start
 
-- A Kubernetes cluster + `kubectl`
-- Helm v3
-- Network access to pull the container image (default: `ghcr.io/btungut/lexis-api:latest`)
-- OCI support for Helm dependencies (Helm supports OCI by default in modern versions)
+```bash
+# Run with Docker
+docker run -p 3000:3000 -e PORT=3000 ghcr.io/btungut/lexis-api:0.0.1
 
-### Install / upgrade
+# Test it
+curl -X POST http://localhost:3000/detect \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello, this is a test."}'
+```
 
-From the repo root:
+## Kubernetes Deployment
+
+### Install with Helm
 
 ```bash
 helm dependency update ./helm
@@ -22,7 +27,7 @@ helm upgrade --install lexis-api ./helm \
   --create-namespace
 ```
 
-If you see authentication errors while Helm pulls the `helm-serve` dependency from GHCR, login first:
+If you encounter authentication errors:
 
 ```bash
 helm registry login ghcr.io
@@ -30,34 +35,41 @@ helm registry login ghcr.io
 
 ### Configuration
 
-The chart values live in [helm/values.yaml](helm/values.yaml). The most common knobs:
+Key values in [helm/values.yaml](helm/values.yaml):
 
-- `deployment.image.repository` / `deployment.image.tag`
-- `deployment.env.PORT` (can be `4001` or `:4001`; the app will add the `:` if missing)
-- `deployment.env.MAX_CHAR_PROCESS` (defaults to `2000`)
-- `service.type` / `service.port`
-- `ingress.enabled` and `ingress.rule.*`
+- `deployment.image.repository` / `deployment.image.tag` - Container image
+- `deployment.env.PORT` - Application port (e.g., `4001`)
+- `deployment.env.MAX_CHAR_PROCESS` - Max text length (default: `2000`)
+- `service.type` / `service.port` - Service configuration
+- `ingress.enabled` / `ingress.rule.*` - Ingress settings
 
-Example override file:
+Custom values example:
 
 ```yaml
 # values.local.yaml
 shared:
-  App_Port: 4001
+  App_Port: 4001  # Centralized port configuration
 
 deployment:
   replicaCount: 2
   image:
-    repository: ghcr.io/btungut/lexis-api
     tag: latest
   env:
-    PORT: ":4001"
+    PORT: "{{ .Values.shared.App_Port }}"  # References shared.App_Port
     MAX_CHAR_PROCESS: "2000"
+```
 
-service:
-  type: ClusterIP
-  port: 80
+Apply:
 
+```bash
+helm upgrade --install lexis-api ./helm -n lexis-api --create-namespace -f values.local.yaml
+```
+
+### Advanced Ingress Configuration
+
+For path-based routing with URL rewriting:
+
+```yaml
 ingress:
   enabled: true
   className: nginx
@@ -69,106 +81,137 @@ ingress:
     path: /lexis(/|$)(.*)
 ```
 
-Apply it:
+This routes `nonprod.example.local/lexis/*` to the service root path.
+
+## Development
+
+### Local Development
 
 ```bash
-helm upgrade --install lexis-api ./helm \
-  --namespace lexis-api \
-  --create-namespace \
-  -f values.local.yaml
-```
+# Build
+go build -o lexis-api .
 
-### Verify
+# Run (PORT will be normalized automatically)
+export PORT=3000
+export MAX_CHAR_PROCESS=2000
+./lexis-api
 
-Health endpoint:
-
-```bash
-# Find the Service name and port
-kubectl -n lexis-api get svc
-
-# (Optional) port-forward to your machine
-kubectl -n lexis-api port-forward svc/$(kubectl -n lexis-api get svc -o jsonpath='{.items[0].metadata.name}') 8080:80
-
-curl -i http://127.0.0.1:8080/health
-```
-
-## Building and testing this Go code
-
-### Requirements
-
-- Go (see [go.mod](go.mod); currently `go 1.25.5`)
-
-### Run tests
-
-```bash
+# Run tests
 go test ./...
-```
 
-Run a single test:
-
-```bash
+# Run specific test
 go test -run TestDetectEndpoint ./...
 ```
 
-### Build
-
-```bash
-go build -o lexis-api .
-```
-
-### Run locally
-
-`PORT` can be provided as `3000` or `:3000` (the app will normalize it).
-
-```bash
-export PORT="3000"
-export MAX_CHAR_PROCESS="2000"
-./lexis-api
-```
-
-### Build and run with Docker
+### Build Docker Image
 
 ```bash
 docker build -t lexis-api:local .
-docker run --rm -p 3000:3000 -e PORT="3000" -e MAX_CHAR_PROCESS="2000" lexis-api:local
+docker run --rm -p 3000:3000 -e PORT=3000 -e MAX_CHAR_PROCESS=2000 lexis-api:local
 ```
 
 ## API
 
 ### `GET /health`
 
-Returns `200` when the service is up.
+Health check endpoint for Kubernetes probes.
+
+```bash
+curl http://localhost:3000/health
+# Returns: 200 OK
+```
 
 ### `POST /detect`
 
-Request body:
+Detects language and returns ISO 639-1 code with confidence score.
+
+**Request**:
 
 ```json
-{"text":"Hello, this is a test."}
+{"text": "Hello, this is a test."}
 ```
 
-Response body:
+**Response**:
 
 ```json
-{"language":"en","confidence":0.97}
+{"language": "en", "confidence": 0.97}
 ```
 
-Notes:
+**Examples**:
 
-- `language` is ISO 639-1 lowercase (e.g. `en`, `tr`, `es`) or `unknown`.
-- Very large text is truncated to `MAX_CHAR_PROCESS` runes to avoid CPU spikes.
+```bash
+# English
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text":"Hello, this is a test."}'
 
-## Supported languages
+# Turkish
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text":"Merhaba, bu bir testtir."}'
 
-At startup, Lexis preloads language models for a curated set of common languages (English, Turkish, German, French, Spanish, Italian, Portuguese, Russian, Arabic, Chinese, Japanese, Korean, Dutch, Azerbaijani, Persian). If you want broader coverage, you can change the detector builder in [main.go](main.go).
+# Spanish
+curl -X POST http://localhost:3000/detect -H "Content-Type: application/json" \
+  -d '{"text":"Hola, esto es una prueba."}'
+```
+
+**Response Fields**:
+
+- `language` - ISO 639-1 code (`en`, `tr`, `es`, etc.) or `unknown`
+- `confidence` - Float between 0.0 and 1.0
+
+**Error (400)**:
+
+```json
+{"error": "Invalid JSON format"}
+{"error": "Description cannot be empty"}
+```
+
+**Note**: Text exceeding `MAX_CHAR_PROCESS` is automatically truncated (default: 2000 chars).
+
+## Supported Languages
+
+15 preloaded language models:
+
+| Language    | Code | Language    | Code | Language   | Code |
+| ----------- | ---- | ----------- | ---- | ---------- | ---- |
+| English     | `en` | Spanish     | `es` | Arabic     | `ar` |
+| Turkish     | `tr` | Italian     | `it` | Chinese    | `zh` |
+| German      | `de` | Portuguese  | `pt` | Japanese   | `ja` |
+| French      | `fr` | Russian     | `ru` | Korean     | `ko` |
+| Dutch       | `nl` | Azerbaijani | `az` | Persian    | `fa` |
+
+For broader coverage, modify [main.go](main.go:57-67) to use `.FromAllLanguages()`.
+
+## Environment Variables
+
+| Variable           | Default | Description                  |
+| ------------------ | ------- | ---------------------------- |
+| `PORT`             | `3000`  | HTTP server port             |
+| `MAX_CHAR_PROCESS` | `1000`  | Max characters per request   |
+
+## Docker Image
+
+**Image**: `ghcr.io/btungut/lexis-api:0.0.1`
+
+**Features**:
+
+- Multi-stage build (golang:1.25-alpine → alpine:3.19)
+- Static binary with stripped debug symbols
+- Non-root user execution
+- Minimal footprint
 
 ## Contributing
 
-PRs are welcome.
+Contributions welcome!
 
-- Keep changes focused and documented.
-- Prefer adding/adjusting tests in [main_test.go](main_test.go) when behavior changes.
+**Guidelines**:
 
-## Security
+- Add/update tests in [main_test.go](main_test.go) for behavior changes
+- Follow Go best practices (`gofmt`)
+- Keep changes focused and documented
+- Run `go test ./...` before submitting
 
-If you discover a security issue, please avoid filing a public issue. Prefer a private report to the maintainers.
+**Security**: Report vulnerabilities privately to maintainers, not via public issues.
+
+## License
+
+Open source - check repository for details.

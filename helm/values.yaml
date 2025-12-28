@@ -11,7 +11,7 @@ deployment:
   
   image:
     repository: "ghcr.io/btungut/lexis-api"
-    tag: "latest"
+    tag: "0.0.1"
 
   configMaps: {}
   secrets: {}

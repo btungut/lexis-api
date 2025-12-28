@@ -2,8 +2,8 @@ apiVersion: v2
 name: lexis-api
 description: Lexis API helps to determine the language of a given text.
 type: application
-version: 0.0.0
-appVersion: ""
+version: 0.0.1
+appVersion: "0.0.1"
 
 dependencies:
   - name: helm-serve
