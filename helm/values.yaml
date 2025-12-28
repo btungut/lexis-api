@@ -1,0 +1,45 @@
+nameOverride: ""
+fullnameOverride: ""
+
+shared:
+  App_Port: 4001
+
+deployment:
+  replicaCount: 1
+  containerPort: "{{ .Values.shared.App_Port }}"
+  terminationGracePeriodSeconds: 10
+  
+  image:
+    repository: "ghcr.io/btungut/lexis-api"
+    tag: "latest"
+
+  configMaps: {}
+  secrets: {}
+
+  env:
+    PORT: "{{ .Values.shared.App_Port }}"
+    MAX_CHAR_PROCESS: "2000"
+
+
+service:
+  enabled: true
+  port: 80
+  type: ClusterIP
+
+  ### Example NodePort Configuration
+  # type: NodePort
+  # nodePort: 30987
+
+
+ingress:
+  enabled: false
+
+  ### Example Ingress Configuration
+  # enabled: true
+  # className: "nginx"
+  # annotations:
+  #   nginx.ingress.kubernetes.io/use-regex: "true"
+  #   nginx.ingress.kubernetes.io/rewrite-target: /$2
+  # rule:
+  #   host: "nonprod.example.local"
+  #   path: /lexis(/|$)(.*)

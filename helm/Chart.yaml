@@ -1,0 +1,11 @@
+apiVersion: v2
+name: lexis-api
+description: Lexis API helps to determine the language of a given text.
+type: application
+version: 0.0.0
+appVersion: ""
+
+dependencies:
+  - name: helm-serve
+    repository: oci://ghcr.io/btungut
+    version: 0.0.1
