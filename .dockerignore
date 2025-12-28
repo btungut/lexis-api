@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+LICENSE*
+COMMERCIAL*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+lexis-api
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+vendor/
+
+# Helm chart (not needed for Docker build)
+helm/
+
+# GitHub workflows
+.github/
+
+# Environment files
+.env
+.env.*
+
+# Docker files (prevent recursive copy)
+Dockerfile
+.dockerignore
+docker-compose*.yml
