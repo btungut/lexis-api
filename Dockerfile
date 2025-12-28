@@ -33,6 +33,9 @@ LABEL license="Lexis Non-Commercial Source License (NCSL) v1.0"
 LABEL copyright="Copyright (c) 2025 Burak Tungut"
 LABEL commercial-use="prohibited"
 LABEL contact="burak.tungut@tungops.com.tr"
+LABEL org.opencontainers.image.source="https://github.com/btungut/lexis-api"
+LABEL org.opencontainers.image.licenses="Lexis Non-Commercial Source License (NCSL) v1.0"
+LABEL org.opencontainers.image.authors="Burak Tungut"
 
 # Install CA certificates for HTTPS requests (if needed)
 RUN apk --no-cache add ca-certificates tzdata
