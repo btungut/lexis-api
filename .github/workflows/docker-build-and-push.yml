@@ -54,5 +54,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/btungut/lexis-api:${{ steps.prepare_task.outputs.version }}
+          tags: ghcr.io/btungut/${{ github.repository }}:${{ steps.prepare_task.outputs.version }}
           file: ./Dockerfile
